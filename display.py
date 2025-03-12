@@ -36,6 +36,7 @@ class Chart(object):
 
 
 class Pie(Chart):
+    """饼图"""
 
     xsize = 0
     ysize = 0
@@ -64,7 +65,7 @@ class Pie(Chart):
 
 
 class Plot(Chart):
-
+    """折线图"""
     def __init__(self, title):
         super().__init__(title)
         
@@ -81,7 +82,6 @@ class Plot(Chart):
             for ndf in super().split_dataframe_by_magnitude(df):
                 ndatas.append(ndf)
 
-        # 确保有数据
         if not ndatas:
             print("No data to plot.")
             return
@@ -99,12 +99,11 @@ class Plot(Chart):
             xticks = range(0, len(data.index), max(1, len(data.index) // 10))  # 每 10% 选一个刻度
             plt.xticks(xticks, [data.index[idx] for idx in xticks], rotation=0)
         
-        plt.tight_layout()  # 调整布局，防止重叠
-        plt.show()  # 显示图表
-
+        plt.tight_layout()  
+        plt.show()
 
 class Bar(Chart):
-
+    """柱状图"""
     def show(self):
         plt.clf()
         plt.figure(figsize=(6, 6))
@@ -117,15 +116,3 @@ class Bar(Chart):
 
         plt.show()
     
-if __name__=='__main__':
-    from processor import *
-    vid=VideoProcessor(35868098,['view','reply','coin'])
-    import time
-    t1=time.time()
-    df=vid.a_get_videoinfos_by_uid()
-    t2=time.time()
-    print(t2-t1)
-    vid.set_index_for_dataframe('ctime')
-    df=Plot(35868098)
-    df.add_data(vid.dataframes[0])
-    df.show()

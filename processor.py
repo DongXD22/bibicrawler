@@ -7,53 +7,51 @@ from utils import *
 
 
 class Processor:
-    
+    """处理原始信息
+    """
     def __init__(self):
         self.dataframes:list[pd.DataFrame]=[]
         self.serieses:list[pd.Series]=[]
         self.mapping:dict={
             
         }
-        self.semaphore=asyncio.Semaphore(200)
-    
-    def split_dataframe_by_magnitude(self, i:int=0):
-        df=self.dataframes[i]
-        # 计算每列绝对值的最大值
-        max_values = df.abs().max()
-
-        # 计算每列最大值的数量级
-        # 如果最大值为 0 或负数，取对数前需处理，这里将 0 的数量级设为 -1
-        magnitudes = max_values.apply(
-            lambda x: np.floor(np.log10(x)) if x > 0 else -1)
-        # 获取所有唯一数量级
-        unique_magnitudes = magnitudes.unique()
-
-        # 为每个数量级创建一个新的 DataFrame
-        for mag in unique_magnitudes:
-            # 找到具有当前数量级的列
-            columns = magnitudes[magnitudes == mag].index
-            # 创建新的 DataFrame，包含这些列
-            new_df = df[columns]
-            # 添加到列表中
-            self.dataframes.append(new_df)
-        
-        self.dataframes.pop(i)    
+        #self.semaphore=asyncio.Semaphore(200)
+      
     
     def set_index_for_dataframe(self,index:str,i:int=0):
+        """为dataframe[index]的dataframe设置索引
+
+        Args:
+            index (str): 
+            i (int, optional): Defaults to 0.
+        """
         self.dataframes[i].set_index(index,inplace=True)
         
     def split_serieses_from_datafrme(self,needs:list[str],i:int=0):
+        """从dataframe中提取出列名needs的serieses(未完成)
+
+        Args:
+            needs (list[str]): 需要分离的列
+            i (int, optional):  dataframe位置 Defaults to 0.
+        """
         for need in needs:
             newseries=pd.Series(name=need)
             self.serieses.append(self.dataframes[i][need])
             self.dataframes[i].drop(columns=need)
         
     def map_series(self,i:int=0):
+        """将series中的值进行映射
+
+        Args:
+            i (int, optional): series位置. Defaults to 0.
+        """
         name=self.serieses[i].name
         self.serieses[i]=self.serieses[i].map(self.mapping[name])
     
     
 class CommentsProcessor(Processor):
+    """处理评论信息
+    """
     
     def __init__(self,uid:int,needs:list[str],perpage:int,num:int):
         super().__init__()
@@ -101,7 +99,7 @@ class CommentsProcessor(Processor):
         }
         
         
-    def get_infos_by_comments(self,comments) -> list[pd.Series]:
+    def get_infos_by_comments(self,comments:dict) -> list[pd.Series]:
         """通过指定评论区下方的评论, 来获取needs中的所需观众信息
 
         Args:
@@ -134,7 +132,7 @@ class CommentsProcessor(Processor):
             num (int, optional): 获取视频数量. Defaults to -1.
 
         Returns:
-            list[pd.Series]: 加和后的所需信息
+            list[pd.Series]: 加和后的所需信息,更改serieses
         """
         aidcrawler=Usercrawler(self.uid,self.num)
         cmtscrl=Commentscrawler(perpage=self.perpage,needs=self.needs)
@@ -149,8 +147,9 @@ class CommentsProcessor(Processor):
                 self.serieses = [x+y for x, y in zip(self.serieses, infos)]
 
 class VideoProcessor(Processor):
-    
-    def __init__(self,uid,needs:list[str],num=-1,index='ctime'):
+    """处理视频信息
+    """
+    def __init__(self,uid:int,needs:list[str],num=-1,index='ctime'):
         super().__init__()
         self.needs=needs
         self.needs.append(index)
@@ -186,13 +185,8 @@ class VideoProcessor(Processor):
     def get_videoinfos_by_uid(self) -> pd.DataFrame:
         """通过所获得的视频aid列表，来统计出needs中所需信息，返回以index为索引的dataframe
 
-        Args:
-            needs (list[str]): 所需信息
-            aids (list[int]): 视频aid列表
-            index (str, optional): 索引. Defaults to 'ctime'.
-
         Returns:
-            pd.DataFrame: 统计信息
+            pd.DataFrame: 统计信息,添加到dataframes中
         """
         aidcrawler=Usercrawler(self.uid,self.num)
         aidcrawler.get_aids_by_user()
@@ -211,9 +205,18 @@ class VideoProcessor(Processor):
 
         self.dataframes.append(new_dataframe)
         
-    async def fetch_video_info(self, session, vidcrawler:Videoinfoscrawler, aid):
-        """异步获取单个视频的信息"""
-        ori_infos = await vidcrawler.a_get_ori_video_infos_by_aid(session,aid)  # 假设改为异步
+    async def fetch_video_info(self, session, vidcrawler:Videoinfoscrawler, aid)->pd.DataFrame:
+        """异步获取单个视频信息
+
+        Args:
+            session (_type_): 
+            vidcrawler (Videoinfoscrawler): 
+            aid (_type_): 
+
+        Returns:
+            pd.DataFrame: 视频信息
+        """
+        ori_infos = await vidcrawler.a_get_ori_video_infos_by_aid(session,aid) 
         newdf_part = pd.DataFrame(columns=self.needs)
 
         for need in self.needs:
@@ -225,7 +228,7 @@ class VideoProcessor(Processor):
         
     
     async def fetch_all_videos(self):
-        """并发获取所有视频的信息"""
+        """并发获取所有视频的信息,添加到dataframes中"""
         aidcrawler = Usercrawler(self.uid, self.num)
         aidcrawler.get_aids_by_user()  # 假设仍是同步的
         vidcrawler = Videoinfoscrawler(aidcrawler.aids)

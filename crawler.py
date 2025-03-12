@@ -8,31 +8,33 @@ from typing import Generator
 from utils import get_value_by_path
 
 class Bilicrawler:
-    
+    """爬取b站信息
+    """
     def __init__(self):
-        self.default_headers = {
+        self.default_headers:dict = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
            
 
 class Usercrawler(Bilicrawler):
-    
+    """爬取b站用户信息
+    """
     def __init__(self,uid,num):
+        super().__init__()
         self.uid:int=uid
         self.num:int=num
         self.url:str = f'https://space.bilibili.com/{self.uid}/video'
-        self.path=['data','list','vlist']
-        self.aids=[]
+        self.path:list=['data','list','vlist']
+        self.aids:list=[]
+
 
     def get_aids_by_user(self) -> list[int]:
         """根据提供的uid来爬取指定数量的视频aid
 
         Args:
-            uid (int): 用户uid
-            num (int, optional): 需要的视频数量. Defaults to -1.
 
         Returns:
-            list[int]: 视频aid列表
+            list[int]: 视频aid列表,添加到aids中
         """
         self.aids.clear()
         driver=ChromiumPage()
@@ -64,9 +66,11 @@ class Usercrawler(Bilicrawler):
             else:
                 break
         self.aids=aids
-        print("\nDone\n")
+        print("\nDone")
         
 class Commentscrawler(Bilicrawler):
+    """爬取b站评论区信息
+    """
     
     def __init__(self,aids,perpage):
         super().__init__()
@@ -81,10 +85,9 @@ class Commentscrawler(Bilicrawler):
 
         Args:
             aid (int): 视频aid
-            perpage (int): 相隔的页数
 
         Returns:
-            list[dict]: 视频下方的评论
+            list[dict]: 视频下方的评论原始信息
         """
         comments = []
         size = 0
@@ -136,7 +139,8 @@ class Commentscrawler(Bilicrawler):
         
         
 class Videoinfoscrawler(Bilicrawler):
-    
+    """爬取视频信息
+    """
     def __init__(self,aids,):
         super().__init__()
         self.aids:list[int]=aids
@@ -176,8 +180,7 @@ class Videoinfoscrawler(Bilicrawler):
         url = self.url
         params = {'aid': aid}  # API参数
         headers = self.default_headers
-
-        
+          
         try:
             async with session.get(url, headers=headers, params=params, timeout=10) as response:
                 if response.status == 200:
@@ -210,7 +213,7 @@ def get_aids_by_user(uid: int, num: int = -1) -> list[int]:
     driver.get(url)
     aids = []
     flag = False
-    for page in range(100):
+    while True:
         resp = driver.listen.wait()
         jsondata = resp.response.body
         for index in jsondata['data']['list']['vlist']:
