@@ -6,7 +6,7 @@ from pathlib import Path
 (播放量,评论数,硬币数,收藏数,分享数,点赞数)"""
 
 #初始化
-uid=input("")
+uid=input("uid:")
 vid=vid=VideoProcessor(uid,['view','reply','coin','favorite','share','like'])
 
 #数据文件地址
