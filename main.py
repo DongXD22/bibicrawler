@@ -2,7 +2,7 @@ from processor import *
 from display import *
 from statistic import *
 from pathlib import Path
-"""根据提供的uid爬取用户视频数据
+"""根据提供的uid爬取用户视频数据,并生成可视化图表
 (播放量,评论数,硬币数,收藏数,分享数,点赞数)"""
 
 #初始化
