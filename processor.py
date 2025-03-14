@@ -7,8 +7,8 @@ from utils import *
 
 
 class Processor:
-    """处理原始信息
-    """
+    """处理原始信息"""
+    
     def __init__(self):
         self.dataframes:list[pd.DataFrame]=[]
         self.serieses:list[pd.Series]=[]
@@ -80,7 +80,7 @@ class CommentsProcessor(Processor):
             'vip': {
                 'path': ['member', 'vip', 'vipType'],
                 'index': ['No', 'Month', 'Year'],
-                'name': ['Vips'],
+                'name': 'Vips',
                 'mapping': {
                     0: 'No',
                     1: 'Month',
@@ -135,16 +135,53 @@ class CommentsProcessor(Processor):
             list[pd.Series]: 加和后的所需信息,更改serieses
         """
         aidcrawler=Usercrawler(self.uid,self.num)
-        cmtscrl=Commentscrawler(perpage=self.perpage,needs=self.needs)
         aidcrawler.get_aids_by_user()
+        cmtscrl=Commentscrawler(perpage=self.perpage,aids=aidcrawler.aids)
+        
         
         for aid in aidcrawler.aids:
             cmts=cmtscrl.get_comments_by_video(aid)
             infos = self.get_infos_by_comments(cmts)
-            if not self.infos:
+            if not self.serieses:
                 self.serieses = infos
             else:
                 self.serieses = [x+y for x, y in zip(self.serieses, infos)]
+    
+    async def fetch_comments_info(self,aid:int,cmtscrawler:Commentscrawler,session:aiohttp.ClientSession)->list[pd.Series]:
+        ori_infos=await cmtscrawler.a_get_comments_by_video(aid,session)
+        serieses=[]
+        for need in self.needs:
+            info = self.config[need]
+            path = info['path']
+            series = pd.Series(0, index=info['index'], name=str(info['name']))
+            for comment in ori_infos:
+                data = get_value_by_path(comment, path)
+                if info['mapping']:
+                    data = info['mapping'][data]
+                series[data] += 1
+            serieses.append(series)
+        return serieses 
+    
+    async def fetch_all_comments(self):
+        aidcrawler=Usercrawler(self.uid,self.num)
+        aidcrawler.get_aids_by_user()
+        cmtscrl=Commentscrawler(perpage=self.perpage,aids=aidcrawler.aids)
+        
+        
+        async with aiohttp.ClientSession() as session:
+            tasks=[self.fetch_comments_info(aid,cmtscrl,session) for aid in aidcrawler.aids]
+            results=await asyncio.gather(*tasks)
+            
+        for result in results:
+            if not self.serieses:
+                self.serieses = result
+            else:
+                self.serieses = [x+y for x, y in zip(self.serieses, result)]
+
+    @log
+    def a_get_commentsinfos_by_uid(self)->list[pd.Series]:
+        asyncio.run(self.fetch_all_comments())
+
 
 class VideoProcessor(Processor):
     """处理视频信息

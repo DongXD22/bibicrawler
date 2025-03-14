@@ -6,6 +6,8 @@ import aiohttp
 import itertools
 from typing import Generator
 from utils import get_value_by_path
+import uuid
+import random
 
 class Bilicrawler:
     """爬取b站信息
@@ -14,7 +16,8 @@ class Bilicrawler:
         self.default_headers:dict = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
-           
+        
+    
 
 class Usercrawler(Bilicrawler):
     """爬取b站用户信息
@@ -80,7 +83,7 @@ class Commentscrawler(Bilicrawler):
         self.path:str=['data', 'replies']
         
         
-    def get_comments_by_video(aid: int, self) -> list[dict]:
+    def get_comments_by_video(self,aid: int) -> list[dict]:
         """根据提供的视频aid, 每指定页数获取整页的评论
 
         Args:
@@ -99,7 +102,7 @@ class Commentscrawler(Bilicrawler):
             'type': 1,
             'next': 1,
         }
-        headers = self.defult_headers
+        headers = self.default_headers
         path = self.path
 
         while True:
@@ -131,6 +134,57 @@ class Commentscrawler(Bilicrawler):
                 
         print("\nDone")
         return list(itertools.chain(*comments))
+    
+    
+    async def a_get_comments_by_video(self,aid:int,session:aiohttp.ClientSession)->list[dict]:
+        url=self.url
+        params = {
+            'oid': aid,
+            'type': 1,
+            'next': 1,
+        }
+        cookies = {
+            "buvid3": "{}{:05d}infoc".format(uuid.uuid4(), random.randint(1, 99999))
+        }
+        headers=self.default_headers
+        path = self.path
+        
+        comments = []
+        size = 0
+        total = 0
+        
+        while True:
+            try:
+                async with session.get(url,headers=headers,params=params,cookies=cookies,timeout=10) as response:
+                    response.raise_for_status()
+                    data = await response.json()
+                    if data['code'] != 0:
+                        print(f"{aid} API error: {data['code']} - {data.get('message', 'Unknown error')}")
+                        break
+
+                    cmts = get_value_by_path(data, path)
+                    if not cmts:
+                        break
+                    comments.append(cmts)
+                    params['next'] += self.perpage
+
+                    size += len(cmts)
+                    total += self.perpage*20
+                    print(f"\r{aid} Got comments:{size}/{total}", end="", flush=True)
+                
+            except aiohttp.ClientError as e:
+                print(f"aiohttp failed: {e}")
+                return None
+            except ValueError as e:
+                print(f"JSON decode error: {e}")
+                return None
+        print("\nDone")
+        return list(itertools.chain(*comments))
+
+                
+                        
+                    
+    
     
     def generate_all_comments_in_aids(self):
         for aid in self.aids:
